@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# bin/notetaker-flush — drain .kanban/buffer.jsonl, summarize, post activity.
+set -u
+BACKGROUND=0
+ALL=0
+for arg in "$@"; do
+  case "$arg" in
+    --background) BACKGROUND=1 ;;
+    --all) ALL=1 ;;
+  esac
+done
+
+LIB_DIR="${NOTETAKER_LIB_DIR:-$HOME/.claude/notetaker-kanban/lib}"
+# shellcheck disable=SC1091
+source "$LIB_DIR/config.sh"
+# shellcheck disable=SC1091
+source "$LIB_DIR/buffer.sh"
+# shellcheck disable=SC1091
+source "$LIB_DIR/api.sh"
+
+flush_one_repo() {
+  local repo="$1"
+  cd "$repo" || return 1
+  [ -f .kanban/buffer.jsonl ] || return 0
+  local size; size="$(wc -c < .kanban/buffer.jsonl | tr -d ' ')"
+  [ "$size" -gt 0 ] || return 0
+
+  local card_ids
+  card_ids="$(jq -r '.card_id' .kanban/buffer.jsonl 2>/dev/null | sort -u)"
+  if [ -z "$card_ids" ]; then
+    : > .kanban/buffer.jsonl
+    return 0
+  fi
+
+  while IFS= read -r card_id; do
+    [ -n "$card_id" ] || continue
+    flush_one_card "$card_id" || echo "flush failed for $card_id" >> .kanban/flush.log
+  done <<< "$card_ids"
+
+  : > .kanban/buffer.jsonl
+  echo "[$(date -u +%FT%TZ)] flushed $size bytes" >> .kanban/flush.log
+}
+
+flush_one_card() {
+  local card_id="$1"
+  local prompt_count files unique_files bash_count fail_count first_ts last_ts prompts_first prompts_last files_list
+
+  prompt_count="$(jq -s --arg c "$card_id" 'map(select(.card_id==$c and .event=="user_prompt")) | length' .kanban/buffer.jsonl)"
+  unique_files="$(jq -r --arg c "$card_id" 'select(.card_id==$c and .event=="file_edit") | .payload.file' .kanban/buffer.jsonl | sort -u | wc -l | tr -d ' ')"
+  bash_count="$(jq -s --arg c "$card_id" 'map(select(.card_id==$c and .event=="bash_run")) | length' .kanban/buffer.jsonl)"
+  fail_count="$(jq -s --arg c "$card_id" 'map(select(.card_id==$c and .event=="bash_run" and .payload.exit_code != 0)) | length' .kanban/buffer.jsonl)"
+  first_ts="$(jq -r --arg c "$card_id" 'select(.card_id==$c) | .ts' .kanban/buffer.jsonl | head -1)"
+  last_ts="$(jq -r --arg c "$card_id" 'select(.card_id==$c) | .ts' .kanban/buffer.jsonl | tail -1)"
+  prompts_first="$(jq -r --arg c "$card_id" 'select(.card_id==$c and .event=="user_prompt") | .payload.prompt' .kanban/buffer.jsonl | head -3)"
+  prompts_last="$(jq -r --arg c "$card_id" 'select(.card_id==$c and .event=="user_prompt") | .payload.prompt' .kanban/buffer.jsonl | tail -3)"
+  files_list="$(jq -r --arg c "$card_id" 'select(.card_id==$c and .event=="file_edit") | .payload.file' .kanban/buffer.jsonl | sort -u | head -20)"
+
+  local body
+  if [ "${NOTETAKER_NO_LLM:-0}" = "1" ] || [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    body="prompts=$prompt_count files=$unique_files bash=$bash_count fail=$fail_count span=${first_ts}..${last_ts}"
+    body+=$'\nfiles touched:\n'"$files_list"
+  else
+    body="$(llm_summarize "$prompt_count" "$unique_files" "$bash_count" "$fail_count" "$first_ts" "$last_ts" "$prompts_first" "$prompts_last" "$files_list")"
+  fi
+
+  local details
+  details="$(jq -cn \
+    --argjson p "$prompt_count" \
+    --argjson f "$unique_files" \
+    --argjson b "$bash_count" \
+    --argjson fl "$fail_count" \
+    --arg fts "$first_ts" \
+    --arg lts "$last_ts" \
+    '{prompts:$p, files:$f, bash:$b, bash_failed:$fl, span_start:$fts, span_end:$lts}')"
+
+  api_post_activity "$card_id" "session_summary" "$body" "$details"
+}
+
+llm_summarize() {
+  local prompt_count="$1" files="$2" bash="$3" fail="$4" first="$5" last="$6"
+  local pf="$7" pl="$8" filelist="$9"
+  local model="${OPENROUTER_MODEL:-google/gemini-2.0-flash-001}"
+  local prompt
+  prompt="$(cat <<EOF
+Summarize this Claude Code dev session for a kanban activity entry.
+
+Aggregates:
+- prompts: $prompt_count
+- files touched: $files
+- bash: $bash ($fail failed)
+- span: $first → $last
+
+Recent prompts (first 3):
+$pf
+Recent prompts (last 3):
+$pl
+Files touched:
+$filelist
+
+Output 2-3 short bullets describing what changed and why. Plain markdown, no preamble.
+EOF
+)"
+  local body
+  body="$(jq -cn --arg m "$model" --arg p "$prompt" \
+    '{model:$m, messages:[{role:"user",content:$p}]}')"
+  local resp
+  resp="$(curl -sSf https://openrouter.ai/api/v1/chat/completions \
+    -H "authorization: Bearer $OPENROUTER_API_KEY" \
+    -H 'content-type: application/json' \
+    -d "$body" 2>/dev/null)" || { echo "(LLM unavailable; raw aggregates only)"; return 0; }
+  echo "$resp" | jq -r '.choices[0].message.content // empty'
+}
+
+if [ "$ALL" = "1" ]; then
+  registry="$HOME/.notetaker-kanban/repos.json"
+  [ -f "$registry" ] || exit 0
+  jq -r '.repos[].path' "$registry" | while read -r r; do
+    [ -d "$r" ] && flush_one_repo "$r"
+  done
+else
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+  flush_one_repo "$repo_root"
+fi
