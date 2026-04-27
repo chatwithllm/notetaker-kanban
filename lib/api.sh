@@ -1,6 +1,7 @@
 # lib/api.sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 hash -r 2>/dev/null || true
+source "${BASH_SOURCE%/*}/tools.sh" 2>/dev/null || source "$(dirname "${(%):-%x}")/tools.sh" 2>/dev/null || true
 # curl-based kanban API client.
 # Requires: config.sh sourced (for config_kanban_url).
 # Env: KANBAN_TOKEN — Bearer token sent with every request.
@@ -45,7 +46,7 @@ _api_curl() {
     args+=(-d "$body")
   fi
 
-  curl "${args[@]}" "${base_url}${path}"
+  "$CURL" "${args[@]}" "${base_url}${path}"
 }
 
 # ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@ api_create_card() {
   local body="$1"
   local response
   response="$(_api_curl POST /api/cards "$body")" || return 1
-  echo "$response" | jq -r '.id'
+  echo "$response" | "$JQ" -r '.id'
 }
 
 # api_get_card <card-id>
@@ -86,7 +87,7 @@ api_post_activity() {
   [ -z "$metadata" ] && metadata='{}'
 
   local body
-  body="$(jq -n \
+  body="$( "$JQ" -n \
     --arg t "$activity_type" \
     --arg s "$summary" \
     --argjson m "$metadata" \
@@ -100,11 +101,11 @@ api_post_activity() {
 api_add_tags() {
   local id="$1"; shift
   local current_tags
-  current_tags="$(api_get_card "$id" | jq '.tags')"
+  current_tags="$(api_get_card "$id" | "$JQ" '.tags')"
   local new_tags
-  new_tags="$(jq -cn --argjson cur "$current_tags" --argjson add "$(printf '%s\n' "$@" | jq -R . | jq -s .)" \
+  new_tags="$( "$JQ" -cn --argjson cur "$current_tags" --argjson add "$(printf '%s\n' "$@" | "$JQ" -R . | "$JQ" -s .)" \
     '($cur + $add) | unique')"
-  api_patch_card "$id" "$(jq -cn --argjson t "$new_tags" '{tags:$t}')" >/dev/null
+  api_patch_card "$id" "$( "$JQ" -cn --argjson t "$new_tags" '{tags:$t}')" >/dev/null
 }
 
 # api_remove_tag <card-id> <tag>
@@ -112,8 +113,8 @@ api_add_tags() {
 api_remove_tag() {
   local id="$1"; local tag="$2"
   local current_tags
-  current_tags="$(api_get_card "$id" | jq '.tags')"
+  current_tags="$(api_get_card "$id" | "$JQ" '.tags')"
   local new_tags
-  new_tags="$(echo "$current_tags" | jq --arg t "$tag" 'map(select(. != $t))')"
-  api_patch_card "$id" "$(jq -cn --argjson t "$new_tags" '{tags:$t}')" >/dev/null
+  new_tags="$(echo "$current_tags" | "$JQ" --arg t "$tag" 'map(select(. != $t))')"
+  api_patch_card "$id" "$( "$JQ" -cn --argjson t "$new_tags" '{tags:$t}')" >/dev/null
 }

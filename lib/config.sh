@@ -1,6 +1,7 @@
 # lib/config.sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 hash -r 2>/dev/null || true
+source "${BASH_SOURCE%/*}/tools.sh" 2>/dev/null || source "$(dirname "${(%):-%x}")/tools.sh" 2>/dev/null || true
 # Helpers for reading and writing the per-repo .kanban/ config files.
 
 config_dir() {
@@ -18,7 +19,7 @@ config_init() {
   mkdir -p "$dir"
 
   if [ ! -f "$dir/config.json" ]; then
-    jq -n \
+    "$JQ" -n \
       --arg pk "$project_key" \
       --arg ku "$kanban_url" \
       --arg mb "$main_branch" \
@@ -27,7 +28,7 @@ config_init() {
   fi
 
   if [ ! -f "$dir/local.json" ]; then
-    jq -n \
+    "$JQ" -n \
       '{
         branch_card_map: {},
         last_flush: null,
@@ -50,7 +51,7 @@ config_project_key() {
   local dir; dir="$(config_dir)" || return 1
   if [ -f "$dir/config.json" ]; then
     local pk
-    pk="$(jq -r '.project_key // empty' "$dir/config.json")"
+    pk="$( "$JQ" -r '.project_key // empty' "$dir/config.json")"
     if [ -n "$pk" ]; then echo "$pk"; return 0; fi
   fi
   local git_pk
@@ -68,7 +69,7 @@ config_project_key() {
 config_get_card_id() {
   local branch="$1"
   local dir; dir="$(config_dir)" || return 1
-  jq -r --arg b "$branch" '.branch_card_map[$b] // empty' "$dir/local.json"
+  "$JQ" -r --arg b "$branch" '.branch_card_map[$b] // empty' "$dir/local.json"
 }
 
 config_set_card_id() {
@@ -76,7 +77,7 @@ config_set_card_id() {
   local card_id="$2"
   local dir; dir="$(config_dir)" || return 1
   local tmp="$dir/local.json.tmp.$$"
-  jq --arg b "$branch" --arg c "$card_id" \
+  "$JQ" --arg b "$branch" --arg c "$card_id" \
     '.branch_card_map[$b] = $c' \
     "$dir/local.json" > "$tmp"
   mv "$tmp" "$dir/local.json"
@@ -86,10 +87,10 @@ config_unset_card_id() {
   local branch="$1"
   local dir; dir="$(config_dir)" || return 1
   local tmp="$dir/local.json.tmp.$$"
-  jq --arg b "$branch" 'del(.branch_card_map[$b])' \
+  "$JQ" --arg b "$branch" 'del(.branch_card_map[$b])' \
     "$dir/local.json" > "$tmp"
   mv "$tmp" "$dir/local.json"
 }
 
-config_kanban_url() { jq -r '.kanban_url' "$(config_dir)/config.json"; }
-config_main_branch() { jq -r '.main_branch' "$(config_dir)/config.json"; }
+config_kanban_url() { "$JQ" -r '.kanban_url' "$(config_dir)/config.json"; }
+config_main_branch() { "$JQ" -r '.main_branch' "$(config_dir)/config.json"; }

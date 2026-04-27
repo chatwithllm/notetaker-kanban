@@ -1,6 +1,7 @@
 # lib/buffer.sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 hash -r 2>/dev/null || true
+source "${BASH_SOURCE%/*}/tools.sh" 2>/dev/null || source "$(dirname "${(%):-%x}")/tools.sh" 2>/dev/null || true
 # Atomic JSONL append helpers and redaction utilities.
 
 buffer_truncate() {
@@ -32,7 +33,7 @@ buffer_append() {
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   local line
-  line="$(jq -cn \
+  line="$( "$JQ" -cn \
     --arg ts "$ts" \
     --arg event "$event" \
     --arg branch "$branch" \
