@@ -1,0 +1,10 @@
+# bats artifacts
+test_output/
+*.log
+
+# editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
