@@ -1,5 +1,6 @@
 # lib/config.sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+hash -r 2>/dev/null || true
 # Helpers for reading and writing the per-repo .kanban/ config files.
 
 config_dir() {

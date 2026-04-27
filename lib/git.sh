@@ -1,5 +1,6 @@
 # lib/git.sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+hash -r 2>/dev/null || true
 
 git_current_branch() {
   local b
