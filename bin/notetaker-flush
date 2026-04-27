@@ -39,6 +39,9 @@ flush_one_repo() {
 
   : > .kanban/buffer.jsonl
   echo "[$(date -u +%FT%TZ)] flushed $size bytes" >> .kanban/flush.log
+  local now; now="$(date -u +%FT%TZ)"
+  local tmp_local=".kanban/local.json.tmp.$$"
+  jq --arg ts "$now" '.last_flush = $ts' .kanban/local.json > "$tmp_local" && mv "$tmp_local" .kanban/local.json
 }
 
 flush_one_card() {

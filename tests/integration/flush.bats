@@ -30,6 +30,11 @@ teardown() { stop_mock_kanban; teardown_temp_repo; }
   [ "$size" = "0" ]
 
   grep -q '/api/cards/c_42/activity' "$MOCK_KANBAN_LOG"
+
+  # last_flush updated
+  lf="$(jq -r '.last_flush' .kanban/local.json)"
+  [ "$lf" != "null" ]
+  [ -n "$lf" ]
 }
 
 @test "notetaker-flush handles empty buffer gracefully" {

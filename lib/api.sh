@@ -11,6 +11,12 @@ api_token() {
   echo "${KANBAN_TOKEN:-}"
 }
 
+# Print "Authorization: Bearer <token>" header line, or empty when KANBAN_TOKEN is unset.
+api_auth_header() {
+  local t; t="$(api_token)"
+  [ -n "$t" ] && printf 'Authorization: Bearer %s' "$t"
+}
+
 # _api_curl <method> <path> [body-json]
 # Performs the HTTP request and writes the response body to stdout.
 # Exits non-zero if curl fails or the server returns 4xx/5xx.
@@ -20,18 +26,18 @@ _api_curl() {
   local body="${3:-}"
   local base_url
   base_url="$(config_kanban_url)"
-  local token
-  token="$(api_token)"
+  local auth_header
+  auth_header="$(api_auth_header)"
 
   local args=(
     -s
     -S
     -X "$method"
-    -H "Authorization: Bearer $token"
     -H "Content-Type: application/json"
     -H "Accept: application/json"
     --fail-with-body
   )
+  [ -n "$auth_header" ] && args+=(-H "$auth_header")
 
   if [ -n "$body" ]; then
     args+=(-d "$body")

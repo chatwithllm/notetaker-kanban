@@ -8,3 +8,11 @@ test_output/
 
 # OS
 .DS_Store
+.kanban/local.json
+.kanban/buffer.jsonl
+.kanban/buffer.errors.log
+.kanban/flush.log
+.kanban/pending-milestones.jsonl
+
+# Bridge repo's own dogfood/test pollution — bridge's .kanban is never meant to be its own metadata.
+.kanban/
