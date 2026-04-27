@@ -5,28 +5,28 @@ source "${BASH_SOURCE%/*}/tools.sh" 2>/dev/null || source "$(dirname "${(%):-%x}
 
 git_current_branch() {
   local b
-  b="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || return 0
+  b="$( "$GIT" symbolic-ref --quiet --short HEAD 2>/dev/null)" || return 0
   echo "$b"
 }
 
 git_branch_commits_since_main() {
   local main_branch="${1:-main}"
   local base
-  base="$(git merge-base HEAD "$main_branch" 2>/dev/null || true)"
+  base="$( "$GIT" merge-base HEAD "$main_branch" 2>/dev/null || true)"
   if [ -z "$base" ]; then
-    git log --oneline
+    "$GIT" log --oneline
     return 0
   fi
-  git log --oneline "${base}..HEAD"
+  "$GIT" log --oneline "${base}..HEAD"
 }
 
 git_branch_diffstat_since_main() {
   local main_branch="${1:-main}"
   local base
-  base="$(git merge-base HEAD "$main_branch" 2>/dev/null || true)"
+  base="$( "$GIT" merge-base HEAD "$main_branch" 2>/dev/null || true)"
   if [ -z "$base" ]; then
-    git diff --stat HEAD
+    "$GIT" diff --stat HEAD
     return 0
   fi
-  git diff --stat "${base}...HEAD"
+  "$GIT" diff --stat "${base}...HEAD"
 }

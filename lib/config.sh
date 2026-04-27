@@ -6,7 +6,7 @@ source "${BASH_SOURCE%/*}/tools.sh" 2>/dev/null || source "$(dirname "${(%):-%x}
 
 config_dir() {
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+  root="$( "$GIT" rev-parse --show-toplevel 2>/dev/null)" || return 1
   echo "$root/.kanban"
 }
 
@@ -38,7 +38,7 @@ config_init() {
   fi
 
   local gi
-  gi="$(git rev-parse --show-toplevel)/.gitignore"
+  gi="$( "$GIT" rev-parse --show-toplevel)/.gitignore"
   touch "$gi"
   for line in ".kanban/local.json" ".kanban/buffer.jsonl" ".kanban/buffer.errors.log" ".kanban/flush.log" ".kanban/pending-milestones.jsonl"; do
     if ! grep -qxF "$line" "$gi"; then
@@ -55,15 +55,15 @@ config_project_key() {
     if [ -n "$pk" ]; then echo "$pk"; return 0; fi
   fi
   local git_pk
-  git_pk="$(git config --get notetaker.project 2>/dev/null)"
+  git_pk="$( "$GIT" config --get notetaker.project 2>/dev/null)"
   if [ -n "$git_pk" ]; then echo "$git_pk"; return 0; fi
   local origin
-  origin="$(git config --get remote.origin.url 2>/dev/null)"
+  origin="$( "$GIT" config --get remote.origin.url 2>/dev/null)"
   if [ -n "$origin" ]; then
     echo "$origin" | sed -E 's|^[a-z]+://||; s|^git@||; s|:|/|; s|\.git$||' | tr '[:upper:]' '[:lower:]'
     return 0
   fi
-  basename "$(git rev-parse --show-toplevel)"
+  basename "$( "$GIT" rev-parse --show-toplevel)"
 }
 
 config_get_card_id() {

@@ -22,7 +22,7 @@ buffer_append() {
   local payload_json="$4"
 
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || return 0
+  root="$( "$GIT" rev-parse --show-toplevel 2>/dev/null)" || return 0
   local dir="$root/.kanban"
   [ -d "$dir" ] || return 0
 
@@ -68,7 +68,7 @@ buffer_append() {
 
 buffer_size_bytes() {
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo 0; return; }
+  root="$( "$GIT" rev-parse --show-toplevel 2>/dev/null)" || { echo 0; return; }
   local f="$root/.kanban/buffer.jsonl"
   if [ -f "$f" ]; then
     wc -c < "$f" | tr -d ' '
@@ -79,6 +79,6 @@ buffer_size_bytes() {
 
 buffer_truncate_file() {
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+  root="$( "$GIT" rev-parse --show-toplevel 2>/dev/null)" || return 1
   : > "$root/.kanban/buffer.jsonl"
 }
