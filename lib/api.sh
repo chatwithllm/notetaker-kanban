@@ -86,3 +86,26 @@ api_post_activity() {
 
   _api_curl POST "/api/cards/${card_id}/activity" "$body"
 }
+
+# api_add_tags <card-id> <tag1> [tag2 ...]
+# Read existing tags, union with new tags, PATCH back.
+api_add_tags() {
+  local id="$1"; shift
+  local current_tags
+  current_tags="$(api_get_card "$id" | jq '.tags')"
+  local new_tags
+  new_tags="$(jq -cn --argjson cur "$current_tags" --argjson add "$(printf '%s\n' "$@" | jq -R . | jq -s .)" \
+    '($cur + $add) | unique')"
+  api_patch_card "$id" "$(jq -cn --argjson t "$new_tags" '{tags:$t}')" >/dev/null
+}
+
+# api_remove_tag <card-id> <tag>
+# Remove a single tag from the card's tag array, PATCH back.
+api_remove_tag() {
+  local id="$1"; local tag="$2"
+  local current_tags
+  current_tags="$(api_get_card "$id" | jq '.tags')"
+  local new_tags
+  new_tags="$(echo "$current_tags" | jq --arg t "$tag" 'map(select(. != $t))')"
+  api_patch_card "$id" "$(jq -cn --argjson t "$new_tags" '{tags:$t}')" >/dev/null
+}
