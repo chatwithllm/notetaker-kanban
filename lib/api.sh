@@ -1,4 +1,5 @@
 # lib/api.sh
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 # curl-based kanban API client.
 # Requires: config.sh sourced (for config_kanban_url).
 # Env: KANBAN_TOKEN — Bearer token sent with every request.

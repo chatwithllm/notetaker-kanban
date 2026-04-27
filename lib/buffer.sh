@@ -1,4 +1,5 @@
 # lib/buffer.sh
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 # Atomic JSONL append helpers and redaction utilities.
 
 buffer_truncate() {
