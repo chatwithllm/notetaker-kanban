@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# bin/kanban-deploy local|prod -- <real-deploy-cmd>
+set -u
+ENV_NAME="${1:-}"
+shift || true
+[ "${1:-}" = "--" ] && shift
+
+[ "$ENV_NAME" = "local" ] || [ "$ENV_NAME" = "prod" ] || {
+  echo "usage: kanban-deploy local|prod -- <cmd> [args...]"
+  exit 2
+}
+
+LIB_DIR="${NOTETAKER_LIB_DIR:-$HOME/.claude/notetaker-kanban/lib}"
+# shellcheck disable=SC1091
+source "$LIB_DIR/config.sh"
+# shellcheck disable=SC1091
+source "$LIB_DIR/api.sh"
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || REPO_ROOT=""
+BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+CARD_ID=""
+if [ -n "$REPO_ROOT" ] && [ -n "$BRANCH" ] && [ -f "$REPO_ROOT/.kanban/local.json" ]; then
+  CARD_ID="$(cd "$REPO_ROOT" && config_get_card_id "$BRANCH")"
+fi
+
+START_TS="$(date -u +%FT%TZ)"
+"$@"
+RC=$?
+END_TS="$(date -u +%FT%TZ)"
+
+if [ -n "$CARD_ID" ] && [ -n "${KANBAN_URL:-}" ] && [ -n "${KANBAN_TOKEN:-}" ]; then
+  if [ "$RC" -eq 0 ]; then
+    if [ "$ENV_NAME" = "prod" ]; then
+      api_add_tags "$CARD_ID" "deployed-prod" >/dev/null || true
+      api_patch_card "$CARD_ID" '{"status":"done"}' >/dev/null || true
+      api_post_activity "$CARD_ID" "deployed_prod" "deployed prod ($START_TS → $END_TS)" \
+        "$(jq -cn --arg s "$START_TS" --arg e "$END_TS" --argjson rc 0 '{start:$s,end:$e,exit_code:$rc}')" || true
+    else
+      api_add_tags "$CARD_ID" "deployed-local" >/dev/null || true
+      api_post_activity "$CARD_ID" "deployed_local" "deployed local ($START_TS → $END_TS)" \
+        "$(jq -cn --arg s "$START_TS" --arg e "$END_TS" --argjson rc 0 '{start:$s,end:$e,exit_code:$rc}')" || true
+    fi
+  else
+    api_add_tags "$CARD_ID" "deploy-failed-$ENV_NAME" >/dev/null || true
+    api_post_activity "$CARD_ID" "deploy_failed" "deploy failed ($ENV_NAME, exit=$RC)" \
+      "$(jq -cn --arg s "$START_TS" --arg e "$END_TS" --argjson rc "$RC" '{start:$s,end:$e,exit_code:$rc}')" || true
+  fi
+fi
+
+exit "$RC"
