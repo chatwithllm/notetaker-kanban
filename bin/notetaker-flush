@@ -58,12 +58,16 @@ flush_one_card() {
   prompts_last="$(jq -r --arg c "$card_id" 'select(.card_id==$c and .event=="user_prompt") | .payload.prompt' .kanban/buffer.jsonl | tail -3)"
   files_list="$(jq -r --arg c "$card_id" 'select(.card_id==$c and .event=="file_edit") | .payload.file' .kanban/buffer.jsonl | sort -u | head -20)"
 
-  local body
+  local body raw_body
+  raw_body="prompts=$prompt_count files=$unique_files bash=$bash_count fail=$fail_count span=${first_ts}..${last_ts}"
+  raw_body+=$'\nfiles touched:\n'"$files_list"
   if [ "${NOTETAKER_NO_LLM:-0}" = "1" ] || [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    body="prompts=$prompt_count files=$unique_files bash=$bash_count fail=$fail_count span=${first_ts}..${last_ts}"
-    body+=$'\nfiles touched:\n'"$files_list"
+    body="$raw_body"
   else
     body="$(llm_summarize "$prompt_count" "$unique_files" "$bash_count" "$fail_count" "$first_ts" "$last_ts" "$prompts_first" "$prompts_last" "$files_list")"
+    if [ -z "$body" ] || [ "$body" = "(LLM unavailable; raw aggregates only)" ]; then
+      body="(LLM call failed; falling back to raw aggregates)"$'\n'"$raw_body"
+    fi
   fi
 
   local details
@@ -104,14 +108,20 @@ Output 2-3 short bullets describing what changed and why. Plain markdown, no pre
 EOF
 )"
   local body
-  body="$(jq -cn --arg m "$model" --arg p "$prompt" \
+  body="$("$JQ" -cn --arg m "$model" --arg p "$prompt" \
     '{model:$m, messages:[{role:"user",content:$p}]}')"
-  local resp
-  resp="$(curl -sSf https://openrouter.ai/api/v1/chat/completions \
+  local resp http_code
+  resp="$("$CURL" -sS -w '\n%{http_code}' https://openrouter.ai/api/v1/chat/completions \
     -H "authorization: Bearer $OPENROUTER_API_KEY" \
     -H 'content-type: application/json' \
-    -d "$body" 2>/dev/null)" || { echo "(LLM unavailable; raw aggregates only)"; return 0; }
-  echo "$resp" | jq -r '.choices[0].message.content // empty'
+    -d "$body" 2>/tmp/notetaker-llm.err)" || true
+  http_code="$(echo "$resp" | tail -n1)"
+  resp="$(echo "$resp" | sed '$d')"
+  if [ "$http_code" != "200" ]; then
+    echo "(LLM call failed: HTTP $http_code; see /tmp/notetaker-llm.err)" >&2
+    return 0
+  fi
+  echo "$resp" | "$JQ" -r '.choices[0].message.content // empty'
 }
 
 if [ "$ALL" = "1" ]; then
