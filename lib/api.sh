@@ -91,7 +91,7 @@ api_post_activity() {
     --arg t "$activity_type" \
     --arg s "$summary" \
     --argjson m "$metadata" \
-    '{ type: $t, summary: $s, metadata: $m }')"
+    '{ type: $t, body: $s, details: $m }')"
 
   _api_curl POST "/api/cards/${card_id}/activity" "$body"
 }
