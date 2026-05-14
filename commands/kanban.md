@@ -40,10 +40,10 @@ Use `AskUserQuestion` with these options:
 
 Use `AskUserQuestion` with these options:
 
+- **Progress** — AI-summarize commits + diffs since last progress note, post to card (delegates to `/kanban-progress`)
 - **Move card** → sub-menu (Today / In Progress / Done)
 - **Comment** — append a free-form note to the card
-- **Tag** → sub-menu (deployed-local / deployed-prod / blocked / feedback / unblock)
-- **More** → sub-menu (Flush / Status / Pull / Unlink)
+- **More** → sub-menu (Tag deployed-local/-prod/blocked/feedback/unblock, Flush, Status, Pull, Unlink)
 
 ## Step 3 — Execute the chosen action
 
