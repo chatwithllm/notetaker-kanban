@@ -96,6 +96,16 @@ api_post_activity() {
   _api_curl POST "/api/cards/${card_id}/activity" "$body"
 }
 
+# api_announce_branch_link <card-id> <branch>
+# One-time comment posted when a git branch is bound to a card, so the
+# card timeline carries an audit trail of which branch is tracking it.
+api_announce_branch_link() {
+  local card_id="$1"
+  local branch="$2"
+  [ -n "$card_id" ] && [ -n "$branch" ] || return 0
+  api_post_activity "$card_id" "comment" "🔗 tracking branch: $branch" '{}' >/dev/null 2>&1 || true
+}
+
 # api_add_tags <card-id> <tag1> [tag2 ...]
 # Read existing tags, union with new tags, PATCH back.
 api_add_tags() {

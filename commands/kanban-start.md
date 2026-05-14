@@ -86,6 +86,7 @@ You are about to bootstrap kanban tracking for the current branch in this repo (
    CARD_ID="$(api_create_card "$PAYLOAD")"
    [ -n "$CARD_ID" ] || { echo "create failed"; exit 1; }
    config_set_card_id "$BRANCH" "$CARD_ID"
+   api_announce_branch_link "$CARD_ID" "$BRANCH"
    echo "✓ Created card $CARD_ID for branch $BRANCH"
    echo "  Project: $PROJECT"
    echo "  $KANBAN_URL"

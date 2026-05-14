@@ -56,8 +56,10 @@ Defer to the full `/kanban-start` instructions: read git history, propose JSON, 
 ### Link to existing card
 
 ```bash
+source "$NOTETAKER_LIB_DIR/api.sh"
 # Prompt the user for the card UUID, then:
 config_set_card_id "$BRANCH" "$CARD_ID_FROM_USER"
+api_announce_branch_link "$CARD_ID_FROM_USER" "$BRANCH"
 echo "✓ Bound branch $BRANCH to card $CARD_ID_FROM_USER"
 ```
 
