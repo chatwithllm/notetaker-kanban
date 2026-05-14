@@ -54,17 +54,28 @@ If both `COMMITS` and `PATHS` are empty, tell the user "Nothing new since the la
 
 ## Step 4 — Compose the summary (Claude does this)
 
-Read `COMMITS`, `PATHS`, `STAT`. Write a single short paragraph (2-4 sentences max) that:
+Read `COMMITS`, `PATHS`, `STAT`. Write a short human-voiced update:
 
-- Says what shipped (features/fixes/refactors) — group by intent, not file
-- Mentions concrete numbers when meaningful (e.g. "12 files, +280/-90")
-- Avoids commit-message rehash; this is a status update, not a changelog
-- No bullet points; flowing prose
-- No "I" / "we" — third-person factual
+- **Bullet form.** Use `- ` (dash + space) bullets, one per shipped thing. 3–7 bullets total.
+- **Group by intent**, not by file. "Bot polling now survives stale callbacks" beats "patched server/src/telegram/bot.ts".
+- **Human voice.** Read like a teammate reporting in. Past-tense, plain language, no jargon dump. Avoid "shipped X", "implemented Y" — say what it does for the user.
+- **Skip the file count line** unless the diffs are unusually large (5k+ lines or 50+ files); if you include it, make it the last bullet.
+- **No commit-message rehash.** Refer to *what now works* not *which commit landed*.
+- Avoid "I" / "we" — phrase as facts about the work itself.
 
-Prefix with `🤖 progress:` so the cutoff detection in Step 2 catches it next time.
+Start with the header line `🤖 progress:` on its own line, then bullets below. The prefix is required for the cutoff detection in Step 2.
 
-Example shape: `🤖 progress: Mobile capture row now docks with a target-lane chip; sheet picker portals to body so all four lanes are reachable. Login redesigned to match the dark board look. 6 files, +566/-258.`
+Example shape:
+
+```
+🤖 progress:
+- Mobile capture bar now sits docked at the bottom and lets you save to any lane from one tap
+- Login page got the same dark look as the board, with a violet logo mark and softer focus rings
+- iOS keyboard no longer pushes the send arrow off-screen
+- Telegram bot survives stale buttons — polling kept dying after the first error before
+- Brainstorm has 30s of room instead of 10s, so it stops aborting under load
+- Card IDs are now copyable from the edit dialog header on both web and mobile
+```
 
 ## Step 5 — Confirm + post
 
